@@ -113,11 +113,27 @@ def main() -> None:
         run_graphrag_index(args.root, args.update)
         if not args.no_push:
             logger.info("NAS 백업(push) 시작: %s", args.root / "output")
-            nas_sync.push(args.root / "output")
+            _push_with_retry(args.root / "output")
             logger.info("NAS 백업 완료")
     except (IndexRunnerError, nas_sync.NasSyncError) as e:
         logger.error(str(e))
         sys.exit(1)
+
+
+def _push_with_retry(local_output: Path, retries: int = 2, wait_seconds: float = 3.0) -> None:
+    # 인덱싱 직후에는 lancedb 등 일부 산출물의 OS 파일 잠금이 아주 짧게 남아있어
+    # 곧바로 NAS로 복사하면 간헐적으로 실패할 수 있다. 잠깐 대기 후 재시도한다.
+    for attempt in range(1, retries + 2):
+        try:
+            nas_sync.push(local_output)
+            return
+        except nas_sync.NasSyncError:
+            if attempt > retries:
+                raise
+            logger.warning(
+                "NAS push 실패 (시도 %d/%d), %.0f초 후 재시도", attempt, retries + 1, wait_seconds
+            )
+            time.sleep(wait_seconds)
 
 
 if __name__ == "__main__":

@@ -20,3 +20,7 @@ __pycache__/
 # 작업 원본 문서 (사용자 요청으로 커밋 제외)
 코드작업지시서_NAS2dual_GraphRAG.docx
 *.docx
+*.xlsx
+
+# NAS에서 받았지만 이번 인덱싱 대상에서 제외한 사용자 데이터
+ragproj/input_excluded/
