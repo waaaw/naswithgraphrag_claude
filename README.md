@@ -1,7 +1,8 @@
 # NAS2dual + GraphRAG 개인 지식그래프 RAG 시스템
 
 ipTIME NAS2dual(저장 전용) + 개발 PC(GraphRAG 연산)로 구성된 2-Tier 개인 지식그래프 RAG 시스템.
-자세한 마일스톤/태스크 정의는 [SPEC.md](SPEC.md), 작업 원칙은 [CLAUDE.md](CLAUDE.md) 참고.
+처음 접한다면 개념·아키텍처·실측 데이터 위주로 정리한 [docs/MANUAL.md](docs/MANUAL.md)부터 읽는 걸
+추천한다. 마일스톤/태스크 정의는 [SPEC.md](SPEC.md), 작업 원칙은 [CLAUDE.md](CLAUDE.md) 참고.
 
 ```
 NAS2dual (//nas/graphrag/input, /artifacts)  ── SMB ──  개발 PC (Python + GraphRAG + LLM)
