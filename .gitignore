@@ -5,6 +5,8 @@
 
 # graphrag output & venv
 ragproj/output/
+ragproj/cache/
+ragproj/logs/
 .venv/
 venv/
 
