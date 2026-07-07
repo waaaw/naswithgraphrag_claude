@@ -74,7 +74,9 @@ def _windows_ensure_connection(cfg: dict) -> str:
 
 def _robocopy(src: Path, dst: Path) -> None:
     dst.mkdir(parents=True, exist_ok=True)
-    cmd = ["robocopy", str(src), str(dst), "/E", "/R:2", "/W:2", "/NFL", "/NDL"]
+    # /R:5 /W:3: 인덱싱 직후(예: lancedb) 파일 핸들이 잠깐 남아있는 경우가 있어
+    # 넉넉한 재시도로 일시적 잠금 실패를 흡수한다.
+    cmd = ["robocopy", str(src), str(dst), "/E", "/R:5", "/W:3", "/NFL", "/NDL"]
     result = subprocess.run(cmd, capture_output=True, text=True)
     # robocopy exit code: 0-7 성공(변화 없음/복사됨 등), 8 이상은 실패
     if result.returncode >= 8:
