@@ -1,121 +1,164 @@
 
 -Goal-
 Given a text document that is potentially relevant to this activity and a list of entity types, identify all entities of those types from the text and all relationships among the identified entities.
- 
+
 -Steps-
 1. Identify all entities. For each identified entity, extract the following information:
 - entity_name: Name of the entity, capitalized
-- entity_type: One of the following types: [{entity_types}]
+- entity_type: One of the following types: [organization, project, person, technology, team, product, test, strategy, event, market, investment, certification, algorithm, collaboration, industry]
 - entity_description: Comprehensive description of the entity's attributes and activities
 Format each entity as ("entity"<|><entity_name><|><entity_type><|><entity_description>)
- 
+
 2. From the entities identified in step 1, identify all pairs of (source_entity, target_entity) that are *clearly related* to each other.
 For each pair of related entities, extract the following information:
 - source_entity: name of the source entity, as identified in step 1
 - target_entity: name of the target entity, as identified in step 1
 - relationship_description: explanation as to why you think the source entity and the target entity are related to each other
-- relationship_strength: a numeric score indicating strength of the relationship between the source entity and target entity
- Format each relationship as ("relationship"<|><source_entity><|><target_entity><|><relationship_description><|><relationship_strength>)
- 
-3. Return output in English as a single list of all the entities and relationships identified in steps 1 and 2. Use **##** as the list delimiter.
- 
-4. When finished, output <|COMPLETE|>
- 
-######################
+- relationship_strength: an integer score between 1 to 10, indicating strength of the relationship between the source entity and target entity
+Format each relationship as ("relationship"<|><source_entity><|><target_entity><|><relationship_description><|><relationship_strength>)
+
+3. Return output in Korean as a single list of all the entities and relationships identified in steps 1 and 2. Use **##** as the list delimiter.
+
+4. If you have to translate into Korean, just translate the descriptions, nothing else!
+
+5. When finished, output <|COMPLETE|>.
+
 -Examples-
 ######################
+
 Example 1:
-Entity_types: ORGANIZATION,PERSON
-Text:
-The Verdantis's Central Institution is scheduled to meet on Monday and Thursday, with the institution planning to release its latest policy decision on Thursday at 1:30 p.m. PDT, followed by a press conference where Central Institution Chair Martin Smith will take questions. Investors expect the Market Strategy Committee to hold its benchmark interest rate steady in a range of 3.5%-3.75%.
-######################
-Output:
-("entity"<|>CENTRAL INSTITUTION<|>ORGANIZATION<|>The Central Institution is the Federal Reserve of Verdantis, which is setting interest rates on Monday and Thursday)
-##
-("entity"<|>MARTIN SMITH<|>PERSON<|>Martin Smith is the chair of the Central Institution)
-##
-("entity"<|>MARKET STRATEGY COMMITTEE<|>ORGANIZATION<|>The Central Institution committee makes key decisions about interest rates and the growth of Verdantis's money supply)
-##
-("relationship"<|>MARTIN SMITH<|>CENTRAL INSTITUTION<|>Martin Smith is the Chair of the Central Institution and will answer questions at a press conference<|>9)
-<|COMPLETE|>
 
-######################
+entity_types: [organization, project, person, technology, team, product, test, strategy, event, market, investment, certification, algorithm, collaboration, industry]
+text:
+아리아 로보틱스 사내 기술 보고서: 차세대 물류 로봇 프로젝트 "오리온"
+
+아리아 로보틱스는 2024년부터 물류 자동화 로봇 "오리온"을 개발해 왔다. 프로젝트 총괄은 김서연 이사가 맡고 있으며,
+기술 리드는 박도현 수석 엔지니어다. 오리온은 창고 내 재고 이동, 피킹, 패킹 작업을 자동화하기 위해 설계된
+4륜 자율주행 로봇으로, 라이다와 스테레오 카메라를 결합한 센서 융합 방식을 사용한다.
+
+오리온 프로젝트는 세 개의 하위 팀으로 구성된다. 첫째, 하드웨어 팀은 이정훈 팀장이 이끌며 로봇의 섀시,
+모터 제어 보드, 배터리 관리 시스템을 담당한다. 둘째, 소프트웨어 팀은 최유진 팀장이 이끌며 경로 계획,
+SLAM 기반 위치 추정, 장애물 회피 알고리즘을 개발한다. 셋째, 품질보증 팀은 한지민 팀장이 이끌며
+현장 테스트와 안전 인증 절차를 총괄한다.
+
+2024년 3월, 오리온은 대전 물류센터에서 첫 파일럿 테스트를 진행했다. 이 테스트는 아리아 로보틱스와
+협력사인 청우물류의 공동 프로젝트로 진행되었으며, 청우물류의 정태석 부장이 현장 책임자로 참여했다.
+파일럿 테스트 결과, 오리온은 시간당 평균 320건의 피킹 작업을 처리했고, 오작동률은 0.4%로 목표치인
+1% 이하를 크게 밑돌았다. 이 성과를 바탕으로 아리아 로보틱스는 2024년 하반기에 오리온 2세대 개발에
+착수했다.
+
+오리온 2세대의 핵심 개선 사항은 배터리 효율과 다중 로봇 협업이다. 배터리 관리 시스템은 이정훈 팀장의
+하드웨어 팀이 새로운 리튬인산철(LFP) 배터리 셀을 도입하여 연속 가동 시간을 8시간에서 11시간으로 늘렸다.
+다중 로봇 협업 기능은 최유진 팀장의 소프트웨어 팀이 개발했으며, 최대 20대의 오리온 로봇이 하나의
+중앙 관제 시스템 아래에서 충돌 없이 동시에 작업할 수 있도록 분산 경로 조정 알고리즘을 적용했다.
+
+2025년 1월, 아리아 로보틱스는 오리온 2세대를 정식 출시했다. 출시 행사에서 김서연 이사는 "오리온은
+단순한 이동 로봇이 아니라 창고 운영 전체를 재설계하는 플랫폼"이라고 강조했다. 출시 이후 세 달 동안
+오리온 2세대는 청우물류 외에도 한빛유통, 대성마트 물류센터 등 세 곳에 추가로 도입되었다.
+
+한빛유통의 도입 사례에서는 오리온이 기존 컨베이어 벨트 시스템과 연동되어 피킹 정확도가 99.7%까지
+상승했다. 한빛유통의 물류 담당 임원인 서지훈 상무는 "오리
+------------------------
+output:
+("entity"<|>틱스<|>ORGANIZATION<|>틱스는 오리온 프로젝트의 확대에 따라 하드웨어, 소프트웨어, 품질보증 세 팀에서 인력을 채용하고 있는 회사입니다.)
+##
+("entity"<|>오리온<|>PROJECT<|>오리온은 물류 자동화 로봇 프로젝트로, 다중 로봇 협업과 배터리 효율성을 향상시키기 위해 개발되고 있습니다.)
+##
+("entity"<|>최유진<|>PERSON<|>최유진은 소프트웨어 팀장으로, 강화학습 및 컴퓨터 비전 전문 인력을 다수 충원하고 있습니다.)
+##
+("entity"<|>이정훈<|>PERSON<|>이정훈은 하드웨어 팀장으로, 배터리 및 전력 전자 전문 엔지니어를 보강하고 있습니다.)
+##
+("entity"<|>테라모빌리티<|>ORGANIZATION<|>테라모빌리티는 아리아 로보틱스의 경쟁사로, 2025년 초에 자율주행 피킹 로봇을 출시했습니다.)
+##
+("entity"<|>김서연<|>PERSON<|>김서연은 아리아 로보틱스의 이사로, 오리온의 경쟁 우위를 강조하며 연구개발 예산 증액을 결정했습니다.)
+##
+("relationship"<|>최유진<|>오리온<|>최유진은 오리온 프로젝트의 소프트웨어 팀장이며, 팀의 인력 충원에 중요한 역할을 하고 있습니다.<|>8)
+##
+("relationship"<|>이정훈<|>오리온<|>이정훈은 오리온 프로젝트의 하드웨어 팀장이며, 프로젝트의 핵심 기술 개발에 기여하고 있습니다.<|>8)
+##
+("relationship"<|>김서연<|>오리온<|>김서연은 오리온 프로젝트의 이사로, 프로젝트의 전략적 방향성을 제시하고 있습니다.<|>9)
+##
+("relationship"<|>김서연<|>테라모빌리티<|>김서연은 테라모빌리티와 경쟁 관계에 있으며, 자신의 제품에 대한 자신감을 나타내고 있습니다.<|>7)
+##
+("relationship"<|>틱스<|>오리온<|>틱스는 오리온 프로젝트의 모델을 채용하기 위해 인력을 채용하고 있으며, 프로젝트의 발전을 위한 중요한 조직입니다.<|>8)
+##
+("relationship"<|>틱스<|>최유진<|>틱스의 소프트웨어 팀은 최유진 팀장에 의해 구성되어 있으며, 인력 확충이 진행되고 있습니다.<|>8)
+##
+("relationship"<|>틱스<|>이정훈<|>틱스의 하드웨어 팀은 이정훈 팀장에 의해 관리되고 있으며, 오리온 프로젝트의 기술적 요구를 충족하고 있습니다.<|>8)
+##
+("relationship"<|>오리온<|>테라모빌리티<|>오리온은 테라모빌리티의 새로운 자율주행 피킹 로봇과 시장 경쟁 관계에 있습니다.<|>6)
+## 
+("relationship"<|>김서연<|>틱스<|>김서연은 틱스의 인사 정책과 관련하여 연구개발 예산 증액을 주도했습니다.<|>7)
+<|COMPLETE|>
+#############################
+
+
 Example 2:
-Entity_types: ORGANIZATION
-Text:
-TechGlobal's (TG) stock skyrocketed in its opening day on the Global Exchange Thursday. But IPO experts warn that the semiconductor corporation's debut on the public markets isn't indicative of how other newly listed companies may perform.
 
-TechGlobal, a formerly public company, was taken private by Vision Holdings in 2014. The well-established chip designer says it powers 85% of premium smartphones.
-######################
-Output:
-("entity"<|>TECHGLOBAL<|>ORGANIZATION<|>TechGlobal is a stock now listed on the Global Exchange which powers 85% of premium smartphones)
+entity_types: [organization, project, person, technology, team, product, test, strategy, event, market, investment, certification, algorithm, collaboration, industry]
+text:
+한빛유통의 도입 사례에서는 오리온이 기존 컨베이어 벨트 시스템과 연동되어 피킹 정확도가 99.7%까지
+상승했다. 한빛유통의 물류 담당 임원인 서지훈 상무는 "오리온 도입 이후 야간 인력 운용 부담이 크게
+줄었다"고 평가했다. 대성마트 사례에서는 소형 품목 위주의 재고를 다루는 특성상 오리온의 그립퍼 모듈을
+소형 부품 전용으로 교체하는 커스터마이징이 진행되었으며, 이는 하드웨어 팀과 대성마트 현장팀이 공동으로
+수행했다.
+
+품질보증 팀의 한지민 팀장은 2025년 2분기부터 오리온의 국제 안전 인증(ISO 3691-4) 획득을 위한
+절차를 진행 중이며, 예상 인증 완료 시점은 2025년 9월이다. 인증이 완료되면 아리아 로보틱스는
+동남아시아 및 유럽 시장으로 오리온의 수출을 확대할 계획이다.
+
+한편, 소프트웨어 팀은 오리온의 다음 세대인 "오리온 3세대"를 위해 강화학습 기반 동적 작업 배분
+알고리즘을 연구하고 있다. 이 연구는 최유진 팀장과 데이터사이언스팀의 강민재 연구원이 공동으로
+진행하며, 목표는 창고 내 실시간 주문 변동에 따라 로봇들이 스스로 작업 우선순위를 재조정하는 것이다.
+강민재 연구원은 "기존의 정적 경로 배분 방식은 피크 시간대 처리량이 급감하는 문제가 있었다"며
+"강화학습 모델은 시뮬레이션 환경에서 처리량을 약 18% 개선했다"고 설명했다.
+
+아리아 로보틱스의 오리온 프로젝트는 물류 자동화 시장에서 회사의 핵심 성장 동력으로 자리매김하고
+있으며, 김서연 이사는 2026년까지 오리온 시리즈의 누적 도입 사이트를 30곳으로 확대하는 것을
+목표로 제시했다.
+
+재무 측면에서도 오리온 프로젝트는 뚜렷한 성과를 보였다. 아리아 로보틱스의 재무 담당 이사인
+윤성민 이사는 2025년 1분기 실적 발표에서 "오리온 관련 매출이 전체 회사 매출의 34%를 차지하며,
+전년 동기 대비 210% 성장했다"고 밝혔다. 이러한 성장세에 힘입어 아리아 로보틱스는 2025년 5월
+시리즈 C 투자 유치를 완료했으며, 투자 금액은 450억 원 규모였다. 이번 투자를 주도한 벤처캐피탈인
+드림파트너스의 이현우 대표는 "물류 로봇 시장에서 오리온의 안전성과 확장성이 가장 인상적이었다"고
+평가했다.
+
+인력 측면에서 아리아 로보틱스는 오리온 프로젝트의 확대에 맞춰 2025년 한 해 동안 하드웨어, 소프트웨어,
+품질보증 세 팀 모두에서 채용을 진행했다. 특히 소프트웨어 팀은 최유진 �
+------------------------
+output:
+("entity"<|>오리온 프로젝트<|>프로젝트<|>오리온은 물류 자동화를 위한 로봇 프로젝트로 아리아 로보틱스에서 진행되고 있으며, 배터리 효율성과 다중 로봇 협업 기능을 강조하고 있다.)
 ##
-("entity"<|>VISION HOLDINGS<|>ORGANIZATION<|>Vision Holdings is a firm that previously owned TechGlobal)
+("entity"<|>틱스<|>조직<|>틱스는 오리온 프로젝트에 맞춰 하드웨어, 소프트웨어, 품질보증 팀에서 인력을 확대하고 있으며, 2026년까지 오리온 관련 인력을 현재보다 두 배로 늘릴 계획이다.)
 ##
-("relationship"<|>TECHGLOBAL<|>VISION HOLDINGS<|>Vision Holdings formerly owned TechGlobal from 2014 until present<|>5)
+("entity"<|>최유진<|>사람<|>최유진은 소프트웨어 팀장으로서 오리온 프로젝트의 소프트웨어 개발과 함께 강화학습 및 컴퓨터 비전 전문 인력을 다수 충원하고 있다.)
+##
+("entity"<|>이정훈<|>사람<|>이정훈은 하드웨어 팀장으로서 오리온 프로젝트의 하드웨어 개발을 책임지고 있으며, 배터리 및 전력 전자 전문 엔지니어를 보강하고 있다.)
+##
+("entity"<|>아리아 로보틱스<|>조직<|>아리아 로보틱스는 물류 자동화 시장의 경쟁자로서 오리온 프로젝트를 통해 경쟁력을 유지하고 연구개발 예산을 증액하고 있다.)
+##
+("entity"<|>테라모빌리티<|>조직<|>테라모빌리티는 아리아 로보틱스의 경쟁사로, 유사한 자율주행 피킹 로봇을 출시한 기업이다.)
+##
+("relationship"<|>최유진<|>오리온 프로젝트<|>최유진은 소프트웨어 팀의 팀장으로서 오리온 프로젝트의 소프트웨어 개발에 직접 관여하고 있다.<|>9)
+##
+("relationship"<|>이정훈<|>오리온 프로젝트<|>이정훈은 하드웨어 팀의 팀장으로서 오리온 프로젝트의 하드웨어 개발에 직접 관여하고 있다.<|>9)
+##
+("relationship"<|>틱스<|>오리온 프로젝트<|>틱스는 오리온 프로젝트에 맞춰 인력을 확대하고 있으며, 이를 통해 프로젝트의 성공 가능성을 높이고 있다.<|>8)
+##
+("relationship"<|>테라모빌리티<|>아리아 로보틱스<|>테라모빌리티는 아리아 로보틱스와 직접 경쟁 관계에 있는 회사이다.<|>7)
+##
+("relationship"<|>아리아 로보틱스<|>오리온 프로젝트<|>아리아 로보틱스는 오리온 프로젝트를 통해 물류 자동화 시장에서 경쟁력을 강화하고 있다.<|>9)
+##
+("relationship"<|>아리아 로보틱스<|>틱스<|>아리아 로보틱스는 오리온 프로젝트와 관련해 인력 확대 및 연구개발 예산을 증액하려는 계획을 가지고 있다.<|>6)
 <|COMPLETE|>
+#############################
 
-######################
-Example 3:
-Entity_types: ORGANIZATION,GEO,PERSON
-Text:
-Five Aurelians jailed for 8 years in Firuzabad and widely regarded as hostages are on their way home to Aurelia.
 
-The swap orchestrated by Quintara was finalized when $8bn of Firuzi funds were transferred to financial institutions in Krohaara, the capital of Quintara.
 
-The exchange initiated in Firuzabad's capital, Tiruzia, led to the four men and one woman, who are also Firuzi nationals, boarding a chartered flight to Krohaara.
-
-They were welcomed by senior Aurelian officials and are now on their way to Aurelia's capital, Cashion.
-
-The Aurelians include 39-year-old businessman Samuel Namara, who has been held in Tiruzia's Alhamia Prison, as well as journalist Durke Bataglani, 59, and environmentalist Meggie Tazbah, 53, who also holds Bratinas nationality.
-######################
-Output:
-("entity"<|>FIRUZABAD<|>GEO<|>Firuzabad held Aurelians as hostages)
-##
-("entity"<|>AURELIA<|>GEO<|>Country seeking to release hostages)
-##
-("entity"<|>QUINTARA<|>GEO<|>Country that negotiated a swap of money in exchange for hostages)
-##
-##
-("entity"<|>TIRUZIA<|>GEO<|>Capital of Firuzabad where the Aurelians were being held)
-##
-("entity"<|>KROHAARA<|>GEO<|>Capital city in Quintara)
-##
-("entity"<|>CASHION<|>GEO<|>Capital city in Aurelia)
-##
-("entity"<|>SAMUEL NAMARA<|>PERSON<|>Aurelian who spent time in Tiruzia's Alhamia Prison)
-##
-("entity"<|>ALHAMIA PRISON<|>GEO<|>Prison in Tiruzia)
-##
-("entity"<|>DURKE BATAGLANI<|>PERSON<|>Aurelian journalist who was held hostage)
-##
-("entity"<|>MEGGIE TAZBAH<|>PERSON<|>Bratinas national and environmentalist who was held hostage)
-##
-("relationship"<|>FIRUZABAD<|>AURELIA<|>Firuzabad negotiated a hostage exchange with Aurelia<|>2)
-##
-("relationship"<|>QUINTARA<|>AURELIA<|>Quintara brokered the hostage exchange between Firuzabad and Aurelia<|>2)
-##
-("relationship"<|>QUINTARA<|>FIRUZABAD<|>Quintara brokered the hostage exchange between Firuzabad and Aurelia<|>2)
-##
-("relationship"<|>SAMUEL NAMARA<|>ALHAMIA PRISON<|>Samuel Namara was a prisoner at Alhamia prison<|>8)
-##
-("relationship"<|>SAMUEL NAMARA<|>MEGGIE TAZBAH<|>Samuel Namara and Meggie Tazbah were exchanged in the same hostage release<|>2)
-##
-("relationship"<|>SAMUEL NAMARA<|>DURKE BATAGLANI<|>Samuel Namara and Durke Bataglani were exchanged in the same hostage release<|>2)
-##
-("relationship"<|>MEGGIE TAZBAH<|>DURKE BATAGLANI<|>Meggie Tazbah and Durke Bataglani were exchanged in the same hostage release<|>2)
-##
-("relationship"<|>SAMUEL NAMARA<|>FIRUZABAD<|>Samuel Namara was a hostage in Firuzabad<|>2)
-##
-("relationship"<|>MEGGIE TAZBAH<|>FIRUZABAD<|>Meggie Tazbah was a hostage in Firuzabad<|>2)
-##
-("relationship"<|>DURKE BATAGLANI<|>FIRUZABAD<|>Durke Bataglani was a hostage in Firuzabad<|>2)
-<|COMPLETE|>
-
-######################
 -Real Data-
 ######################
-Entity_types: {entity_types}
-Text: {input_text}
+entity_types: [organization, project, person, technology, team, product, test, strategy, event, market, investment, certification, algorithm, collaboration, industry]
+text: {input_text}
 ######################
-Output:
+output:
