@@ -1,0 +1,139 @@
+### T09 — Ollama 완전 로컬 전환용 설정 (비용 0, API 키 불필요)
+### 사용법: 이 파일을 ragproj/settings.yaml로 복사(또는 --config로 지정)한 뒤
+###        graphrag index / query 를 그대로 실행한다.
+### 사전 준비:
+###   1) ollama pull qwen2.5
+###   2) ollama pull nomic-embed-text
+###   3) ollama/Modelfile.qwen2.5-ctx12k 로 num_ctx가 고정된 커스텀 모델 생성
+###      (아래 "⚠️ num_ctx 함정" 및 README.md 참고)
+###
+### For a full list of available settings, see https://microsoft.github.io/graphrag/config/yaml/
+
+### LLM settings ###
+## ⚠️ num_ctx 함정: Ollama 기본 컨텍스트 창은 2048 토큰으로, GraphRAG의 엔티티/커뮤니티
+## 리포트 추출처럼 긴 JSON 출력을 요구하는 작업에서는 출력이 중간에 잘리는(truncation)
+## 문제가 발생한다. call_args의 num_ctx는 provider/route에 따라 무시될 수 있으므로,
+## 반드시 ollama/Modelfile.qwen2.5-ctx12k 로 num_ctx=12288 이상을 모델에 고정한
+## 커스텀 모델(qwen2.5-ctx12k)을 만들어 사용할 것. (자세한 내용은 README.md 참고)
+
+completion_models:
+  default_completion_model:
+    model_provider: openai
+    model: qwen2.5-ctx12k # ollama create qwen2.5-ctx12k -f ollama/Modelfile.qwen2.5-ctx12k 로 생성
+    api_base: http://localhost:11434/v1
+    auth_method: api_key
+    api_key: ollama # Ollama는 키를 검증하지 않음 - 임의 값(NONE 아님, 빈 문자열도 불가)
+    call_args:
+      num_ctx: 12288 # 보조적 안전장치. 실제 보장은 Modelfile의 PARAMETER num_ctx가 담당.
+    retry:
+      type: exponential_backoff
+
+embedding_models:
+  default_embedding_model:
+    model_provider: openai
+    model: nomic-embed-text
+    api_base: http://localhost:11434/v1
+    auth_method: api_key
+    api_key: ollama
+    retry:
+      type: exponential_backoff
+
+### Document processing settings ###
+
+input:
+  type: text # [csv, text, json, jsonl]
+
+chunking:
+  type: tokens
+  size: 1200
+  overlap: 100
+  encoding_model: o200k_base
+
+### Storage settings ###
+
+input_storage:
+  type: file # [file, blob, cosmosdb]
+  base_dir: "input"
+
+output_storage:
+  type: file # [file, blob, cosmosdb]
+  base_dir: "output"
+
+reporting:
+  type: file # [file, blob]
+  base_dir: "logs"
+
+cache:
+  type: json # [json, memory, none]
+  storage:
+    type: file # [file, blob, cosmosdb]
+    base_dir: "cache"
+
+vector_store:
+  type: lancedb
+  db_uri: output\lancedb
+
+### Workflow settings ###
+
+embed_text:
+  embedding_model_id: default_embedding_model
+
+extract_graph:
+  completion_model_id: default_completion_model
+  prompt: "prompts/extract_graph.txt"
+  entity_types: [organization, person, geo, event]
+  max_gleanings: 1
+
+summarize_descriptions:
+  completion_model_id: default_completion_model
+  prompt: "prompts/summarize_descriptions.txt"
+  max_length: 500
+
+extract_graph_nlp:
+  text_analyzer:
+    extractor_type: regex_english # [regex_english, syntactic_parser, cfg]
+
+cluster_graph:
+  max_cluster_size: 10
+
+extract_claims:
+  enabled: false
+  completion_model_id: default_completion_model
+  prompt: "prompts/extract_claims.txt"
+  description: "Any claims or facts that could be relevant to information discovery."
+  max_gleanings: 1
+
+community_reports:
+  completion_model_id: default_completion_model
+  graph_prompt: "prompts/community_report_graph.txt"
+  text_prompt: "prompts/community_report_text.txt"
+  max_length: 2000
+  max_input_length: 8000
+
+snapshots:
+  graphml: false
+  embeddings: false
+
+### Query settings ###
+
+local_search:
+  completion_model_id: default_completion_model
+  embedding_model_id: default_embedding_model
+  prompt: "prompts/local_search_system_prompt.txt"
+
+global_search:
+  completion_model_id: default_completion_model
+  map_prompt: "prompts/global_search_map_system_prompt.txt"
+  reduce_prompt: "prompts/global_search_reduce_system_prompt.txt"
+  knowledge_prompt: "prompts/global_search_knowledge_system_prompt.txt"
+
+drift_search:
+  completion_model_id: default_completion_model
+  embedding_model_id: default_embedding_model
+  prompt: "prompts/drift_search_system_prompt.txt"
+  reduce_prompt: "prompts/drift_search_reduce_prompt.txt"
+
+basic_search:
+  completion_model_id: default_completion_model
+  embedding_model_id: default_embedding_model
+  prompt: "prompts/basic_search_system_prompt.txt"

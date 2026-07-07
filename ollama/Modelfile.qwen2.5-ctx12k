@@ -1,0 +1,15 @@
+# T09 — num_ctx 함정 대응용 커스텀 모델 정의
+#
+# Ollama의 qwen2.5 기본 컨텍스트 창은 2048 토큰이다. GraphRAG의 엔티티/관계 추출,
+# 커뮤니티 리포트 생성은 이보다 훨씬 긴 JSON 출력을 요구하므로, 기본값 그대로 쓰면
+# 인덱싱 중간에 출력이 잘려(truncation) 파싱 오류나 불완전한 그래프가 만들어진다.
+#
+# 사용법:
+#   ollama pull qwen2.5
+#   ollama create qwen2.5-ctx12k -f ollama/Modelfile.qwen2.5-ctx12k
+#   (config/settings.ollama.yaml의 completion_models.default_completion_model.model
+#    이 값과 일치해야 한다: qwen2.5-ctx12k)
+
+FROM qwen2.5
+
+PARAMETER num_ctx 12288
