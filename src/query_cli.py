@@ -24,6 +24,8 @@ class QueryCliError(RuntimeError):
 
 
 def run_query(root: Path, method: str, query: str) -> str:
+    if not query.strip():
+        raise QueryCliError("질문(--q)이 비어 있습니다.")
     if method not in VALID_METHODS:
         raise QueryCliError(
             f"지원하지 않는 --method 값입니다: '{method}'. "

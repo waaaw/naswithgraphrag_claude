@@ -22,7 +22,7 @@ logger = logging.getLogger("index_runner")
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_RAGPROJ_ROOT = REPO_ROOT / "ragproj"
 
-_METRICS_RE = re.compile(r"Metrics for ([^\n:]+): (\{[^{}]*\})", re.DOTALL)
+_METRICS_HEADER_RE = re.compile(r"Metrics for ([^\n:]+):\s*")
 _LOG_ENCODING = "cp949" if sys.platform == "win32" else "utf-8"
 
 
@@ -43,12 +43,16 @@ def _read_new_log_text(log_path: Path, offset: int) -> str:
 def summarize_token_usage(log_text: str) -> dict[str, dict[str, int]]:
     """'Metrics for <model>: {...}' 블록에서 모델별 토큰 사용량을 추출한다."""
     totals: dict[str, dict[str, int]] = {}
-    for model, raw_json in _METRICS_RE.findall(log_text):
+    decoder = json.JSONDecoder()
+    for match in _METRICS_HEADER_RE.finditer(log_text):
+        model = match.group(1).strip()
         try:
-            data = json.loads(raw_json)
+            # 정규식으로 JSON 블록 전체를 잡으면 중첩된 {} 앞에서 잘리므로,
+            # 콜론 뒤 위치부터 JSONDecoder로 직접 파싱해 중첩 깊이에 무관하게 처리한다.
+            data, _ = decoder.raw_decode(log_text, match.end())
         except json.JSONDecodeError:
             continue
-        totals[model.strip()] = {
+        totals[model] = {
             "attempted_request_count": data.get("attempted_request_count", 0),
             "prompt_tokens": data.get("prompt_tokens", 0),
             "completion_tokens": data.get("completion_tokens", 0),

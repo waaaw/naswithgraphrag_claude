@@ -59,8 +59,11 @@ def _windows_ensure_connection(cfg: dict) -> str:
     unc_root = _windows_unc_root(cfg)
     # net use 실패(이미 연결됨 등)와 무관하게, 최종적으로 경로가 실제
     # 접근 가능한지로 판단한다.
+    # 비밀번호를 커맨드라인 인자로 넘기면 실행 중 다른 프로세스에서 잠깐이라도
+    # 볼 수 있으므로(tasklist /v 등), 인자에서 빼고 표준입력으로 전달한다.
     subprocess.run(
-        ["net", "use", unc_root, cfg["password"], f"/user:{cfg['username']}"],
+        ["net", "use", unc_root, f"/user:{cfg['username']}"],
+        input=cfg["password"] + "\n",
         capture_output=True,
         text=True,
     )

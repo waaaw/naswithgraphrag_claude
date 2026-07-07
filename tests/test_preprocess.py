@@ -92,3 +92,46 @@ def test_convert_directory_handles_multiple_files(tmp_path: Path, sample_pdf: Pa
 def test_convert_directory_missing_input_raises(tmp_path: Path):
     with pytest.raises(preprocess.PreprocessError):
         preprocess.convert_directory(tmp_path / "does_not_exist", tmp_path / "out")
+
+
+def test_convert_directory_disambiguates_same_stem(tmp_path: Path, sample_pdf: Path, sample_docx: Path):
+    input_dir = tmp_path / "in"
+    input_dir.mkdir()
+    (input_dir / "report.pdf").write_bytes(sample_pdf.read_bytes())
+    (input_dir / "report.docx").write_bytes(sample_docx.read_bytes())
+    output_dir = tmp_path / "out"
+    results = preprocess.convert_directory(input_dir, output_dir)
+    assert len(results) == 2
+    names = {r.name for r in results}
+    # sorted(iterdir())순으로 처리되므로 "report.docx"가 먼저 report.txt를 선점하고
+    # 뒤이은 "report.pdf"가 충돌해 이름이 바뀐다.
+    assert names == {"report.txt", "report__pdf.txt"}
+    for r in results:
+        assert r.read_text(encoding="utf-8").strip() != ""
+
+
+def test_convert_directory_warns_on_unsupported_extension(tmp_path: Path, caplog):
+    input_dir = tmp_path / "in"
+    input_dir.mkdir()
+    (input_dir / "data.xlsx").write_bytes(b"dummy")
+    output_dir = tmp_path / "out"
+    with caplog.at_level("WARNING"):
+        results = preprocess.convert_directory(input_dir, output_dir)
+    assert results == []
+    assert "xlsx" in caplog.text.lower() or "지원하지" in caplog.text
+
+
+def test_extract_docx_text_includes_table_content(tmp_path: Path):
+    import docx
+
+    document = docx.Document()
+    document.add_paragraph("표 앞 문단입니다.")
+    table = document.add_table(rows=1, cols=2)
+    table.rows[0].cells[0].text = "이름"
+    table.rows[0].cells[1].text = "박도현"
+    dest = tmp_path / "with_table.docx"
+    document.save(str(dest))
+
+    text = preprocess.extract_docx_text(dest)
+    assert "표 앞 문단입니다" in text
+    assert "박도현" in text
