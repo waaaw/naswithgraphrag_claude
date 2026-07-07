@@ -7,6 +7,7 @@
 ragproj/output/
 ragproj/cache/
 ragproj/logs/
+ragproj/update_output/
 .venv/
 venv/
 
