@@ -1,0 +1,19 @@
+# secrets / env
+.env
+.env.*
+!.env.example
+
+# graphrag output & venv
+ragproj/output/
+.venv/
+venv/
+
+# python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# 작업 원본 문서 (사용자 요청으로 커밋 제외)
+코드작업지시서_NAS2dual_GraphRAG.docx
+*.docx
