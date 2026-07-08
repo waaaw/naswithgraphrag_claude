@@ -45,11 +45,12 @@ NAS2dual(input/) → [pull] → 전처리(txt 변환) → GraphRAG 인덱싱 →
 
 | 파일 | 역할 | 실행 예시 |
 |---|---|---|
-| `nas_sync.py` | NAS ↔ PC 파일 동기화. Windows는 robocopy, Linux는 mount.cifs+rsync로 자동 분기. | `--pull` / `--push` |
+| `nas_sync.py` | NAS ↔ PC 파일 동기화. Windows는 robocopy, Linux는 mount.cifs+rsync로 자동 분기. `--push`는 미러링이라 NAS가 항상 최신 상태를 유지하지만, 로컬 산출물이 불완전하면 안전을 위해 거부한다. | `--pull` / `--push` |
 | `preprocess.py` | pdf/docx/txt를 정제된 UTF-8 txt로 변환. hwp·xlsx 등 미지원 형식은 경고 후 건너뜀. | `--input ./docs --output ragproj/input` |
-| `index_runner.py` | GraphRAG 인덱싱 실행 + 소요시간·토큰 사용량 기록 + 완료 후 NAS 자동 백업. | `python index_runner.py [--update]` |
-| `query_cli.py` | 터미널에서 global/local/drift 질의. | `--method global --q "..."` |
-| `app.py` | 같은 질의 기능을 웹 UI로. Streamlit 기반. | `streamlit run src/app.py` |
+| `index_runner.py` | GraphRAG 인덱싱 실행 + 소요시간·토큰 사용량 기록 + 완료 후 NAS 자동 백업. | `python index_runner.py [--update] [--backend openai\|ollama]` |
+| `query_cli.py` | 터미널에서 global/local/drift 질의. 인덱스를 만든 백엔드와 현재 활성 백엔드가 다르면 질의 전에 막는다. | `--method global --q "..."` |
+| `app.py` | 같은 질의 기능을 웹 UI로. Streamlit 기반, 백엔드 선택 셀렉트박스 포함. | `streamlit run src/app.py` |
+| `backend_switch.py` | OpenAI ↔ Ollama 전환. `ragproj/settings.yaml`을 갈아끼우고 활성 백엔드를 기록한다. | `--backend openai\|ollama` |
 
 ## 4. 실제 사용 흐름
 
@@ -62,7 +63,29 @@ NAS2dual(input/) → [pull] → 전처리(txt 변환) → GraphRAG 인덱싱 →
 4. **인덱싱** — `python src/index_runner.py` (문서 추가만 했다면 `--update`로 변경분만 빠르게 반영)
 5. **질문하기** — CLI(`query_cli.py`) 또는 웹 UI(`streamlit run src/app.py`)
 
-## 5. 실제로 확인한 결과
+## 5. LLM 백엔드 선택: OpenAI vs Ollama
+
+이 시스템은 어떤 LLM으로 문서를 읽고 답할지 **선택**할 수 있다.
+
+```bash
+python src/backend_switch.py --backend openai   # 기본값, 유료(저렴함), 정확도 높음
+python src/backend_switch.py --backend ollama   # 완전 로컬, 비용 0, 느리고 일부 기능 제한
+```
+
+| | OpenAI(`gpt-4o-mini`) | Ollama(`qwen2.5:7b`, 로컬) |
+|---|---|---|
+| API 키 | 필요 | **불필요** |
+| 비용 | 인덱싱 1회 몇 센트 | **$0** |
+| 인덱싱 속도(샘플 기준) | 73초 | 35분 (30배 이상 느림) |
+| `local`/`drift` 질의 | 정상 | 정상 (실측 확인됨) |
+| `global` 질의 | 정상 | **실패** — 아래 §8 참고 |
+
+`index_runner.py --backend`나 `query_cli.py --backend`, 또는 Streamlit UI의 셀렉트박스로
+바로 전환할 수 있다. **주의**: 한쪽 백엔드로 인덱싱한 결과를 다른 백엔드 설정으로 질의할 수는
+없다(임베딩이 서로 다른 모델이라 호환 안 됨) — 전환 후에는 반드시 전체 재인덱싱해야 하고,
+이 시스템은 이 실수를 자동으로 감지해서 막아준다(§8 "인덱스-백엔드 불일치 방지" 참고).
+
+## 6. 실제로 확인한 결과
 
 테스트에는 "아리아 로보틱스"라는 가상 회사의 물류 로봇 "오리온" 프로젝트를 다룬 한국어 기술
 보고서(6.2KB)를 사용했다.
@@ -87,7 +110,7 @@ NAS2dual(input/) → [pull] → 전처리(txt 변환) → GraphRAG 인덱싱 →
 | 인명·기관명 표기 | 로마자·한글 혼재 | 한글로 통일 |
 | 동일 인물 중복 | 다수 발생 | 대부분 해소 |
 
-## 6. 비용과 시간이 얼마나 드나
+## 7. 비용과 시간이 얼마나 드나
 
 같은 6.2KB 샘플 문서 기준 실측치. 1차 LLM은 OpenAI gpt-4o-mini + text-embedding-3-small.
 
@@ -102,7 +125,7 @@ NAS2dual(input/) → [pull] → 전처리(txt 변환) → GraphRAG 인덱싱 →
 돌리고 싶다면 `python src/backend_switch.py --backend ollama`로 전환할 수 있다(실측: 인덱싱
 35.4분, `local`/`drift` 검색 정상, `global` 검색은 아래 함정 참고).
 
-## 7. 실전에서 만난 함정들
+## 8. 실전에서 만난 함정들
 
 직접 부딪혀서 확인한 것들이라, 남들도 똑같이 겪을 가능성이 높다.
 
@@ -125,9 +148,31 @@ OpenAI와 동일하게 "박도현" 정답 반환). 하지만 `global` 검색은 
 응답 형식을 소형 로컬 모델이 못 지켜 "답변할 수 없음"만 나온다. 지금은 고치지 않고 기록만
 해뒀다 — 정확한 global 답변이 필요하면 openai 백엔드를 쓸 것.
 
+**⚠️ 더 작은 로컬 모델(qwen2.5:3b)은 아예 못 씀** — VRAM이 작은 GPU를 위해 3B 모델도 시도해봤는데,
+7B보다 훨씬 심각하게 실패했다. 엔티티 목록과 관계(relationship)에서 참조하는 이름 표기가
+서로 어긋나("연구개발 예산 증액"처럼 실체가 아닌 구문까지 엔티티로 착각) 추출된 관계가
+전부 무효 처리됐다("No relationships detected"). 로컬 모델을 쓴다면 최소 7B 이상을 권장.
+
+**⚠️ 오래된 GPU + 오래된 드라이버 조합에서 Ollama가 크래시함** — Pascal 세대 GPU(GTX 1060 등)에서
+Ollama가 최신 CUDA 툴체인 백엔드를 먼저 시도하다 드라이버가 이를 못 받아들여
+`unsupported toolchain` 오류로 죽는 걸 실제로 겪었다. NVIDIA 드라이버를 최신화하면 Ollama가
+자동으로 구버전 CUDA 백엔드로 폴백해 해결됐다(재설치 불필요).
+
 **⚠️ NAS 백업 시 파일 잠금** — 인덱싱 직후 lancedb 벡터스토어 파일이 아주 짧게 잠겨 있어, 인덱싱이
 끝나자마자 NAS로 백업하면 간헐적으로 실패할 수 있었다. 실패 시 3초 대기 후 1회 자동 재시도하도록
 처리했다.
+
+**✓ NAS 백업은 미러링, 하지만 안전장치 있음** — 처음엔 push가 파일을 추가만 해서, 여러 번
+인덱싱할수록 예전 lancedb 잔여 파일이 NAS에 영원히 쌓였다(로컬 44개인데 NAS엔 176개까지
+쌓인 적 있음). 지금은 push가 완전 미러링이라 NAS가 항상 로컬과 정확히 같은 상태를
+유지한다. 다만 미러링은 "지우기"도 하는 작업이라, 로컬 산출물이 불완전한 상태로 push하면
+NAS의 정상 백업까지 지워질 위험이 있어 — 핵심 파일이 안 갖춰져 있으면 push 자체를
+거부하도록 만들어뒀다.
+
+**✓ 인덱스-백엔드 불일치 방지** — OpenAI로 인덱싱해놓고 실수로 Ollama로 백엔드만 바꾼 뒤
+재인덱싱 없이 질의하면, 서로 다른 임베딩 모델이 섞여 결과가 이상해지거나 에러가 날 수
+있다. 인덱싱이 끝날 때마다 "이 인덱스는 어떤 백엔드로 만들어졌는지"를 기록해두고, 질의
+시점에 현재 활성 백엔드와 다르면 질의 자체를 명확한 에러로 막는다.
 
 **✓ 보안 · NAS 비밀번호** — Windows `net use`에 비밀번호를 커맨드라인 인자로 넘기면 실행 중 다른
 프로세스에서 잠깐 보일 수 있어, 표준입력으로 전달하도록 바꿨다. `.env`는 git에 커밋되지 않는다.
@@ -135,11 +180,12 @@ OpenAI와 동일하게 "박도현" 정답 반환). 하지만 `global` 검색은 
 **✓ Windows 콘솔 한글 깨짐** — cp949 코드페이지 콘솔에서 한글 답변이 깨져 보일 수 있지만, 실제
 데이터는 항상 정상 UTF-8이다. 표시 문제일 뿐이며, 파일로 저장해서 열면 정상적으로 보인다.
 
-## 8. 자주 쓰는 명령
+## 9. 자주 쓰는 명령
 
 ```bash
 # 최초 1회
 graphrag init --root ./ragproj --model gpt-4o-mini --embedding text-embedding-3-small
+python src/backend_switch.py --backend openai
 
 # NAS 동기화
 python src/nas_sync.py --pull
@@ -155,9 +201,12 @@ python src/index_runner.py --update   # 증분
 # 질의
 python src/query_cli.py --method global --q "이 문서들의 공통 주제는?"
 streamlit run src/app.py
+
+# 백엔드 전환 (전환 후에는 output/cache를 지우고 전체 재인덱싱할 것)
+python src/backend_switch.py --backend ollama
 ```
 
-## 9. 용어집
+## 10. 용어집
 
 - **엔티티(Entity)** — 문서에서 추출한 인물·조직·장소·사건 같은 "개체". 그래프의 노드가 된다.
 - **커뮤니티(Community)** — 서로 관계가 밀접한 엔티티들의 묶음. GraphRAG가 이 묶음별로 요약
@@ -165,6 +214,8 @@ streamlit run src/app.py
 - **인덱싱(Indexing)** — 원본 문서를 읽어 엔티티·관계·커뮤니티 요약까지 만드는 전체 준비 과정.
   LLM 호출이 가장 많이 일어나는 단계.
 - **증분 인덱싱** — 문서를 추가/수정했을 때 전체를 다시 만들지 않고 바뀐 부분만 반영하는 방식.
+- **백엔드(Backend)** — 실제 질문 이해·답변 생성을 담당하는 LLM 제공처. 이 시스템은 OpenAI(유료,
+  API 키 필요)와 Ollama(무료, 완전 로컬) 중 선택할 수 있다.
 - **프롬프트 튜닝** — 엔티티 추출에 쓰는 LLM 지시문(prompt)을 특정 언어·분야에 맞게 자동으로
   다시 생성하는 기능.
 - **UNC 경로** — `\\서버\공유이름` 형식의 Windows 네트워크 경로 표기. NAS 접근에 사용.
