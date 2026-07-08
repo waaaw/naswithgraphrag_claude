@@ -29,6 +29,12 @@ conda 채널과 자주 충돌하는 경험 때문에 pip+venv로 고정했다.
 - `_windows_ensure_connection`은 비밀번호를 커맨드라인 인자로 넘기지 않고 **표준입력**으로 전달한다(`input=cfg["password"] + "\n"`). 처음엔 `["net", "use", unc_root, password, f"/user:{username}"]`처럼 인자로 넘겼는데, 로컬에서라도 `tasklist /v` 등으로 프로세스 인자가 잠깐 노출될 수 있어 코드 리뷰 때 고쳤다. `PowerShell`의 `Get-SmbMapping`/`Remove-SmbMapping`으로 캐시된 연결을 완전히 지운 클린 상태에서 재인증까지 확인함.
 - `_robocopy`의 재시도 값(`/R:5 /W:3`)은 실전에서 정한 값이다. 인덱싱 직후 `ragproj/output/lancedb/`를 NAS로 push하면 **lancedb가 아주 짧게 파일 핸들을 붙잡고 있어** 간헐적으로 실패했다(robocopy exit=9, 디렉터리 1개만 실패). 재시도를 늘려도 여전히 실패하는 경우가 있어서, `src/index_runner.py`의 [_push_with_retry](../src/index_runner.py):127에 push 실패 시 3초 대기 후 1회 더 재시도하는 상위 레벨 재시도를 추가로 얹었다. robocopy 내부 재시도만으로는 이 레이스 컨디션을 항상 못 잡는다.
 - robocopy 종료 코드는 0-7이 성공(변경 없음/복사됨 등 조합), 8 이상이 실패라는 점에 유의. `>=8`로 체크한다([_robocopy](../src/nas_sync.py):82).
+- **push는 `/MIR`(rsync는 `--delete`), pull은 절대 아님.** 처음엔 둘 다 단순 복사(`/E`)였는데,
+  실제 NAS로 여러 번 push(OpenAI/Ollama 백엔드 전환 테스트 포함)해보니 lancedb가 append-only
+  트랜잭션 로그 구조라 **과거 인덱싱의 잔여 파일이 NAS에 영원히 쌓였다**(로컬 44개인데 NAS엔
+  176개). push에만 미러링을 켜서 해결. pull에는 미러링을 켜면 안 되는데, `preprocess.py`가
+  `ragproj/input`에 로컬 전용 변환 결과(txt)를 만들어두는 경우가 있어 NAS 원본에 없는 그
+  파일들까지 지워버릴 수 있기 때문이다([_robocopy](../src/nas_sync.py):78의 `mirror` 인자 참고).
 
 ### `src/preprocess.py`
 

@@ -75,11 +75,17 @@ def _windows_ensure_connection(cfg: dict) -> str:
     return unc_root
 
 
-def _robocopy(src: Path, dst: Path) -> None:
+def _robocopy(src: Path, dst: Path, mirror: bool = False) -> None:
     dst.mkdir(parents=True, exist_ok=True)
     # /R:5 /W:3: 인덱싱 직후(예: lancedb) 파일 핸들이 잠깐 남아있는 경우가 있어
     # 넉넉한 재시도로 일시적 잠금 실패를 흡수한다.
-    cmd = ["robocopy", str(src), str(dst), "/E", "/R:5", "/W:3", "/NFL", "/NDL"]
+    # mirror=True(/MIR)는 push 전용이다. lancedb는 append-only 트랜잭션 로그라
+    # 단순 복사(/E)만 쓰면 과거 인덱싱의 잔여 파일이 NAS에 영원히 쌓인다.
+    # pull에는 절대 쓰지 않는다 — ragproj/input은 preprocess.py가 같은 폴더에
+    # 로컬 전용 변환 결과(txt)를 만들어두는데, NAS 원본에는 없는 그 파일들까지
+    # /MIR이 지워버릴 수 있기 때문이다.
+    copy_flag = "/MIR" if mirror else "/E"
+    cmd = ["robocopy", str(src), str(dst), copy_flag, "/R:5", "/W:3", "/NFL", "/NDL"]
     result = subprocess.run(cmd, capture_output=True, text=True)
     # robocopy exit code: 0-7 성공(변화 없음/복사됨 등), 8 이상은 실패
     if result.returncode >= 8:
@@ -120,7 +126,9 @@ def _linux_mount_and_sync(cfg: dict, remote_subpath: str, local_dir: Path, direc
             subprocess.run(["rsync", "-av", f"{remote_dir}/", f"{local_dir}/"], check=True)
         else:
             remote_dir.mkdir(parents=True, exist_ok=True)
-            subprocess.run(["rsync", "-av", f"{local_dir}/", f"{remote_dir}/"], check=True)
+            # --delete: push는 미러링(Windows push의 robocopy /MIR과 동일 의도).
+            # pull에는 절대 쓰지 않는다 — _robocopy의 mirror 주석 참고.
+            subprocess.run(["rsync", "-av", "--delete", f"{local_dir}/", f"{remote_dir}/"], check=True)
     finally:
         subprocess.run(["sudo", "umount", str(mount_point)], capture_output=True)
         cred_path.unlink(missing_ok=True)
@@ -154,7 +162,7 @@ def push(local_output: Path = DEFAULT_LOCAL_OUTPUT) -> None:
     if system == "Windows":
         unc_root = _windows_ensure_connection(cfg)
         remote_dir = Path(unc_root) / cfg["artifacts_path"]
-        _robocopy(local_output, remote_dir)
+        _robocopy(local_output, remote_dir, mirror=True)
     elif system == "Linux":
         _linux_mount_and_sync(cfg, cfg["artifacts_path"], local_output, "push")
     else:

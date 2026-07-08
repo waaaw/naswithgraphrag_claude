@@ -68,6 +68,10 @@ python src/nas_sync.py --push   # ragproj/output/ -> NAS 백업
 
 - Windows: `net use` + `robocopy` / Linux: `mount.cifs` + `rsync` 로 OS별 자동 분기.
 - NAS가 꺼져 있거나 `.env` 설정이 없으면 원인을 알 수 있는 에러 메시지와 함께 종료(exit 1)한다.
+- `--push`는 **미러링**(robocopy `/MIR`, rsync `--delete`)이라 NAS `artifacts/`가 항상
+  `ragproj/output/`과 정확히 동일해진다(예전 인덱싱의 lancedb 잔여 파일이 쌓이지 않음).
+  `--pull`은 미러링이 아니다 — `ragproj/input/`에 `preprocess.py`로 만든 로컬 전용 변환
+  파일이 있으면 NAS 원본에 없어도 지우지 않는다.
 
 ## 5. 문서 전처리 (T04)
 
