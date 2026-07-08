@@ -103,6 +103,15 @@ def run_graphrag_index(root: Path, update: bool) -> tuple[float, dict[str, dict[
     return elapsed, token_usage
 
 
+def _write_indexed_backend_marker(root: Path) -> None:
+    # query_cli.py가 "인덱스를 만든 백엔드"와 "질의 시점의 활성 백엔드"가
+    # 어긋나는지 확인할 수 있도록, 인덱싱에 실제로 쓰인 백엔드를 output에 남긴다.
+    backend = backend_switch.current_backend()
+    if backend is None:
+        return
+    (root / "output" / ".indexed_backend").write_text(backend, encoding="utf-8")
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
     parser = argparse.ArgumentParser(description="GraphRAG 인덱싱 실행 + NAS 자동 백업")
@@ -122,6 +131,7 @@ def main() -> None:
         if args.backend:
             backend_switch.switch_backend(args.backend)
         run_graphrag_index(args.root, args.update)
+        _write_indexed_backend_marker(args.root)
         if not args.no_push:
             logger.info("NAS 백업(push) 시작: %s", args.root / "output")
             _push_with_retry(args.root / "output")

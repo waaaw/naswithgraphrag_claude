@@ -38,6 +38,17 @@ def run_query(root: Path, method: str, query: str) -> str:
             f"settings.yaml이 없습니다: {root}. 먼저 인덱싱을 완료하세요 "
             f"(graphrag index 또는 src/index_runner.py)."
         )
+    indexed_backend_marker = root / "output" / ".indexed_backend"
+    active_backend = backend_switch.current_backend()
+    if indexed_backend_marker.exists():
+        indexed_backend = indexed_backend_marker.read_text(encoding="utf-8").strip()
+        if active_backend and indexed_backend != active_backend:
+            raise QueryCliError(
+                f"인덱스는 '{indexed_backend}' 백엔드로 만들어졌는데 현재 활성 백엔드는 "
+                f"'{active_backend}'입니다. 서로 다른 백엔드의 임베딩은 호환되지 않습니다. "
+                f"'python src/backend_switch.py --backend {indexed_backend}'로 되돌리거나, "
+                f"'{active_backend}'로 전체 재인덱싱한 뒤 질의하세요."
+            )
     if method == "global" and backend_switch.current_backend() == "ollama":
         logger.warning(
             "알려진 한계: Ollama 로컬 모델(qwen2.5)은 global search가 요구하는 엄격한 "

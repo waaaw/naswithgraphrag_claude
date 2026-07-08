@@ -2,7 +2,8 @@
 """NAS <-> PC 동기화 (T03).
 
 --pull: NAS 원본 입력 문서를 로컬 ragproj/input/ 으로 복사
---push: 로컬 ragproj/output/ 인덱싱 결과를 NAS 백업 경로로 복사
+--push: 로컬 ragproj/output/ 인덱싱 결과를 NAS 백업 경로로 **미러링**
+        (robocopy /MIR, rsync --delete — NAS 쪽에만 있는 파일도 지운다)
 
 NAS 접속 정보(NAS_HOST/NAS_SHARE/NAS_USERNAME/NAS_PASSWORD)는 반드시
 프로젝트 루트 .env 에서 읽는다. 코드에 하드코딩하지 않는다.
@@ -27,6 +28,18 @@ DEFAULT_LOCAL_INPUT = REPO_ROOT / "ragproj" / "input"
 DEFAULT_LOCAL_OUTPUT = REPO_ROOT / "ragproj" / "output"
 
 REQUIRED_ENV_VARS = ["NAS_HOST", "NAS_SHARE", "NAS_USERNAME", "NAS_PASSWORD"]
+
+# push는 미러링(NAS 쪽에만 있는 파일도 삭제)이라, 로컬 output이 불완전한 상태로
+# 실행하면 NAS의 정상 백업까지 지워버릴 수 있다. 최소한 이 핵심 산출물이 있어야
+# push를 허용한다.
+REQUIRED_OUTPUT_FILES = [
+    "entities.parquet",
+    "relationships.parquet",
+    "communities.parquet",
+    "community_reports.parquet",
+    "documents.parquet",
+    "text_units.parquet",
+]
 
 
 class NasSyncError(RuntimeError):
@@ -158,6 +171,13 @@ def push(local_output: Path = DEFAULT_LOCAL_OUTPUT) -> None:
     cfg = load_nas_config()
     if not local_output.exists():
         raise NasSyncError(f"로컬 출력 경로가 없습니다: {local_output} (먼저 인덱싱을 실행하세요)")
+    missing = [f for f in REQUIRED_OUTPUT_FILES if not (local_output / f).exists()]
+    if missing:
+        raise NasSyncError(
+            f"{local_output}에 핵심 산출물이 없습니다: {', '.join(missing)}. "
+            f"push는 미러링이라 NAS 쪽 기존 파일도 지워지므로, 불완전한 상태로 실행하면 "
+            f"NAS의 정상 백업까지 삭제될 수 있어 막았습니다. 먼저 전체 인덱싱을 완료하세요."
+        )
     system = platform.system()
     if system == "Windows":
         unc_root = _windows_ensure_connection(cfg)
