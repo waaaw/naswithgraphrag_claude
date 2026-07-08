@@ -43,7 +43,10 @@ def switch_backend(backend: str) -> None:
 
     prev = current_backend()
     output_dir = RAGPROJ_ROOT / "output"
-    if prev is not None and prev != backend and output_dir.exists():
+    cache_dir = RAGPROJ_ROOT / "cache"
+    # output이 없어도 cache만 남아있으면(예: 인덱싱이 도중에 실패한 경우) 이전 백엔드의
+    # LLM 응답이 캐시에 남아 다음 인덱싱에서 재사용될 수 있으므로 cache_dir도 함께 본다.
+    if prev is not None and prev != backend and (output_dir.exists() or cache_dir.exists()):
         logger.warning(
             "백엔드를 %s -> %s로 전환합니다. 서로 다른 백엔드의 임베딩/모델은 호환되지 "
             "않으므로, 다음 인덱싱 전에 기존 ragproj/output(및 cache)을 지우고 전체 "
