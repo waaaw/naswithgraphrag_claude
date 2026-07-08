@@ -51,10 +51,13 @@ cp .env.example .env
 
 ```bash
 graphrag init --root ./ragproj --model gpt-4o-mini --embedding text-embedding-3-small
+python src/backend_switch.py --backend openai
 ```
 
-`ragproj/settings.yaml`, `ragproj/.env`(GraphRAG 전용, 여기에도 `GRAPHRAG_API_KEY` 필요),
-`ragproj/prompts/`가 생성된다. `ragproj/.env`도 git에서 제외됨.
+`ragproj/.env`(GraphRAG 전용, 여기에도 `GRAPHRAG_API_KEY` 필요), `ragproj/prompts/`가 생성된다.
+`ragproj/settings.yaml`은 `graphrag init`이 만든 기본값 대신 `backend_switch.py`가
+`config/settings.openai.yaml`을 복사해 덮어쓴다(§9 참고, git에는 커밋되지 않는 파생 파일).
+`ragproj/.env`도 git에서 제외됨.
 
 ## 4. NAS 동기화 (T03)
 
@@ -126,11 +129,22 @@ graphrag prompt-tune --root ./ragproj --language Korean --domain "기술문서"
 > **명령을 실행한 현재 작업 디렉터리** 기준으로 해석된다. `./ragproj`에서 실행하지 않았다면
 > 생성된 `prompts/`를 수동으로 `ragproj/prompts/`에 옮겨야 한다.
 
-## 9. (M4, 선택) Ollama로 완전 로컬 전환 — 비용 0 (T09)
+## 9. LLM 백엔드 전환: OpenAI ↔ Ollama (T09)
 
-API 키 없이 전부 로컬에서 돌리고 싶을 때 사용. 이 저장소에는 **설정 파일과 가이드만
-준비**되어 있으며, Ollama 설치·모델 다운로드·실제 인덱싱 검증은 사용자 환경에서 직접
-수행해야 한다(수 GB 다운로드가 필요해 이 리포의 자동화 범위에서 제외함).
+`src/backend_switch.py`로 언제든 전환할 수 있다. `ragproj/settings.yaml`은
+`config/settings.<backend>.yaml`을 복사해서 만드는 파생 파일이라 git에 커밋되지 않는다.
+
+```bash
+python src/backend_switch.py --backend openai   # 기본값, 유료
+python src/backend_switch.py --backend ollama   # API 키 불필요, 비용 0
+```
+
+`index_runner.py --backend <b>`, `query_cli.py --backend <b>`, `streamlit run src/app.py`의
+백엔드 셀렉트박스로도 바로 전환할 수 있다(내부적으로 동일한 함수 호출). **서로 다른 백엔드의
+임베딩은 호환되지 않으므로, 전환 후에는 `ragproj/output`·`ragproj/cache`를 지우고 전체
+재인덱싱해야 한다** — 안 지우고 인덱싱하면 lancedb 벡터 차원 불일치로 실패한다.
+
+### Ollama 준비 (완전 로컬, 비용 0)
 
 ```bash
 # 1) Ollama 설치 후 모델 받기
@@ -140,12 +154,11 @@ ollama pull nomic-embed-text
 # 2) num_ctx 함정 대응: 커스텀 모델 생성 (아래 설명 참고)
 ollama create qwen2.5-ctx12k -f ollama/Modelfile.qwen2.5-ctx12k
 
-# 3) 설정 적용
-cp config/settings.ollama.yaml ragproj/settings.yaml
-
-# 4) 인덱싱/질의는 기존과 동일하게 실행 (API 키 불필요)
+# 3) 백엔드 전환 + 인덱싱/질의 (API 키 불필요)
+python src/backend_switch.py --backend ollama
+rm -rf ragproj/output ragproj/cache   # 다른 백엔드로 인덱싱된 기존 산출물 정리
 python src/index_runner.py --no-push
-python src/query_cli.py --method global --q "..."
+python src/query_cli.py --method local --q "..."
 ```
 
 ### ⚠️ num_ctx 함정
@@ -163,9 +176,28 @@ FROM qwen2.5
 PARAMETER num_ctx 12288
 ```
 
-[config/settings.ollama.yaml](config/settings.ollama.yaml)은 이 커스텀 모델(`qwen2.5-ctx12k`)을
-가리키도록 이미 구성되어 있다. Acceptance 기준(키 없이 인덱싱+질의 성공, truncation
-경고 없이 커뮤니티 리포트 생성)은 위 절차대로 Ollama를 설치한 뒤 직접 검증한다.
+### ⚠️ [차후 해결 과제] Ollama + global 검색은 실패함 (실측 완료, 2026-07-09)
+
+GTX 1060(3GB) + `qwen2.5:7b`(num_ctx=12288) 조합으로 **API 키 없이 인덱싱과 `local`/`drift`
+검색까지는 정상 동작**함을 실제로 확인했다(35.4분, 40,251 토큰, truncation 없음).
+`오리온 프로젝트 기술 리드는 누구야?` 질문에 OpenAI와 동일하게 "박도현" 정답을 반환했다.
+
+다만 **`global` 검색은 아직 실패한다.** GraphRAG의 global search는 각 커뮤니티 응답을
+엄격한 JSON 형식으로 요구하는데, qwen2.5가 이를 안정적으로 못 지켜 모든 응답이 "관련
+정보 없음"으로 처리되고 "답변할 수 없음"만 반환된다. 더 작은 `qwen2.5:3b`(VRAM이 부족한
+GPU용으로 시도)는 이보다 심해서, 엔티티·관계 추출 단계에서 이름 표기가 서로 어긋나
+관계 자체가 하나도 인정되지 않았다. 원인 분석은
+[docs/DEV_NOTES.md §6](docs/DEV_NOTES.md)에 자세히 정리해뒀다 — **당장 고치지 않고
+차후 과제로 남겨둔다.** 정확한 global 답변이 필요하면 `openai` 백엔드를 쓸 것.
+`query_cli.py`/`app.py`는 이 조합을 쓰면 자동으로 경고를 띄운다.
+
+### GPU 사용 시 참고 (선택)
+
+VRAM이 넉넉하면(7B 기준 5GB+) GPU 가속이 자동으로 적용된다. 오래된 GPU(Pascal 세대 등)에서
+Ollama가 최신 CUDA 툴체인 백엔드를 골라 `unsupported toolchain` 오류로 크래시하면, NVIDIA
+드라이버를 최신화하면 Ollama가 자동으로 구버전 CUDA 백엔드로 폴백한다(상세는 DEV_NOTES 참고).
+VRAM이 부족하면 Ollama가 자동으로 GPU+CPU 하이브리드로 처리하므로 별도 설정 없이도 동작은
+한다(다만 느려진다).
 
 ## 실측 비용·시간 (샘플 문서 6.2KB, 한국어 기술 보고서 기준)
 
@@ -176,9 +208,12 @@ PARAMETER num_ctx 12288
 | 증분 인덱싱 (`graphrag update`, 변경 없음, T05) | 11~13초 | 21~30 (거의 무료) |
 | `graphrag prompt-tune` (T08) | 31.1초 | 31,694 |
 | 프롬프트 튜닝 후 전체 재인덱싱 | 59.6초 | (인덱싱 로그 참고) |
+| Ollama 전체 인덱싱 (`qwen2.5:7b`, GTX 1060 3GB, T09) | 35.4분 | 40,251 (비용 $0) |
+| Ollama Local 질의 1회 | 수십 초 | 수백~수천 |
 
 모든 소요시간/토큰은 `ragproj/logs/indexing-engine.log`, `ragproj/logs/query.log`,
-`ragproj/output/stats.json`에 GraphRAG 자체 계측치로 남는다.
+`ragproj/output/stats.json`에 GraphRAG 자체 계측치로 남는다. Ollama는 OpenAI보다 훨씬
+느리다(같은 문서에 CPU/GPU 하이브리드로 30배 이상) — 비용 대신 시간을 지불하는 트레이드오프.
 
 ## 트러블슈팅
 
@@ -195,6 +230,11 @@ PARAMETER num_ctx 12288
   `--root`가 아니라 현재 작업 디렉터리 기준. `ragproj/prompts/`로 수동 이동 필요.
 - **NAS 관련 에러**: `python src/nas_sync.py --pull`/`--push`가 NAS 전원/네트워크/자격증명
   문제를 원인과 함께 명확히 알려준다. `.env`의 `NAS_*` 값을 다시 확인.
+- **백엔드 전환 후 인덱싱이 벡터 차원 오류로 실패함**: `ragproj/output`·`ragproj/cache`에
+  이전 백엔드의 임베딩이 남아있어서다. `python src/backend_switch.py --backend <b>` 실행 시
+  경고가 뜨면 두 폴더를 지우고 전체 재인덱싱할 것.
+- **Ollama에서 global 검색이 "답변할 수 없음"만 반환**: 알려진 한계. §9 및
+  [docs/DEV_NOTES.md](docs/DEV_NOTES.md) §6 참고. local/drift를 쓰거나 openai 백엔드로 전환.
 
 ## 리포지토리 구조
 
@@ -206,13 +246,15 @@ naswithgraphrag_claude/
 │   ├─ settings.openai.yaml     # 1차(OpenAI) 참고 템플릿
 │   └─ settings.ollama.yaml     # T09 로컬 전환용
 ├─ ollama/
-│   └─ Modelfile.qwen2.5-ctx12k # T09 num_ctx 고정
+│   ├─ Modelfile.qwen2.5-ctx12k     # T09 num_ctx 고정 (7b, 권장)
+│   └─ Modelfile.qwen2.5-3b-ctx12k  # T09 num_ctx 고정 (3b, VRAM 부족 GPU용·품질 낮음)
 ├─ src/
 │   ├─ nas_sync.py       # T03
 │   ├─ preprocess.py     # T04
 │   ├─ index_runner.py   # T05
 │   ├─ query_cli.py      # T06
-│   └─ app.py            # T07
+│   ├─ app.py            # T07
+│   └─ backend_switch.py # T09 (openai <-> ollama 전환)
 ├─ ragproj/
 │   ├─ input/ output/ prompts/ ...  # graphrag init/index 산출물
 ├─ docs/

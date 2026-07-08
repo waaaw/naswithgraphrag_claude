@@ -1,6 +1,6 @@
 ### T09 — Ollama 완전 로컬 전환용 설정 (비용 0, API 키 불필요)
-### 사용법: 이 파일을 ragproj/settings.yaml로 복사(또는 --config로 지정)한 뒤
-###        graphrag index / query 를 그대로 실행한다.
+### 사용법: python src/backend_switch.py --backend ollama
+###        (내부적으로 이 파일을 ragproj/settings.yaml로 복사한다)
 ### 사전 준비:
 ###   1) ollama pull qwen2.5
 ###   2) ollama pull nomic-embed-text
@@ -15,6 +15,13 @@
 ## 문제가 발생한다. call_args의 num_ctx는 provider/route에 따라 무시될 수 있으므로,
 ## 반드시 ollama/Modelfile.qwen2.5-ctx12k 로 num_ctx=12288 이상을 모델에 고정한
 ## 커스텀 모델(qwen2.5-ctx12k)을 만들어 사용할 것. (자세한 내용은 README.md 참고)
+##
+## ⚠️ 실측 결과(GTX 1060 3GB, 7B, num_ctx=12288): 인덱싱과 local/drift 검색은 정상
+## 동작하지만, **global 검색은 실패한다** — GraphRAG가 요구하는 엄격한 JSON 응답 형식을
+## qwen2.5가 안정적으로 못 지켜 모든 map 응답이 점수 0으로 처리되고 "답변할 수 없음"이
+## 나온다. qwen2.5:3b(더 작은 VRAM)는 한 술 더 떠 엔티티/관계 이름 표기가 서로 어긋나
+## 관계 추출 자체가 실패한다. 이 이슈는 차후 해결 과제로 남겨두고(docs/DEV_NOTES.md §6
+## 참고), 정확한 global 답변이 필요하면 openai 백엔드를 사용할 것.
 
 completion_models:
   default_completion_model:

@@ -11,6 +11,11 @@ ragproj/update_output/
 .venv/
 venv/
 
+# ragproj/settings.yaml은 src/backend_switch.py가 config/settings.*.yaml에서
+# 생성하는 파생 파일이라 커밋하지 않는다. .backend는 현재 활성 백엔드 마커.
+ragproj/settings.yaml
+ragproj/.backend
+
 # python
 __pycache__/
 *.py[cod]

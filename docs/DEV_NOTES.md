@@ -77,6 +77,17 @@ conda 채널과 자주 충돌하는 경험 때문에 pip+venv로 고정했다.
   함수를 그대로 import해서 재사용하기 때문에, 검증 로직이 CLI와 UI 양쪽에 동시에 적용된다.
   검증을 `main()`에만 넣으면 app.py 쪽엔 적용이 안 된다.
 
+### `src/backend_switch.py`
+
+- `ragproj/settings.yaml`은 `config/settings.openai.yaml` 또는 `config/settings.ollama.yaml`을
+  복사해서 만드는 **파생 파일**이라 git에 커밋하지 않는다(`.gitignore`). 두 원본 파일이
+  드리프트하지 않도록 소스가 하나로 고정된다. `ragproj/.backend`에 현재 활성 백엔드를
+  기록해두고, 다른 백엔드로 바꾸는데 기존 `ragproj/output/`이 남아있으면 경고를 남긴다
+  (자동 삭제는 하지 않음 — 서로 다른 백엔드의 임베딩 차원이 달라 재사용이 안 되므로
+  전체 재인덱싱이 필요하기 때문. §6의 GPU/VRAM 관련 실측도 참고).
+- `index_runner.py --backend`, `query_cli.py --backend`, `app.py`의 셀렉트박스가 전부 이
+  모듈의 `switch_backend()`를 호출하는 진입점이다.
+
 ### `src/app.py`
 
 - Streamlit 자동화 테스트 중 발견한 특이사항(향후 UI 테스트/디버깅 시 참고): `st.text_area`는
@@ -129,9 +140,25 @@ conda 채널과 자주 충돌하는 경험 때문에 pip+venv로 고정했다.
   방식이라, 원본에서 표가 문단 사이에 끼어 있어도 텍스트에서는 뒤로 밀린다. 문서 구조가
   중요해지면 `document.element.body`를 순회해 원래 순서를 보존하도록 바꿔야 한다.
   (`src/preprocess.py`)
-- **Ollama 로컬 모드는 설정만 준비됨**: `config/settings.ollama.yaml`과
-  `ollama/Modelfile.qwen2.5-ctx12k`는 만들어뒀지만, 실제 Ollama 설치·모델 다운로드·인덱싱
-  Acceptance 검증은 사용자 환경에서 직접 해야 한다(수 GB 다운로드가 필요해 자동화 범위 밖).
+- **[차후 해결 과제] Ollama global search 실패**: GTX 1060(3GB)에서 `qwen2.5:7b` +
+  num_ctx=12288 조합으로 실제 인덱싱·`local`/`drift` 검색까지는 API 키 없이 정상 동작함을
+  확인했다(2026-07-09 검증, 소요 35.4분/40,251 토큰). 그러나 **`global` 검색은 실패한다** —
+  GraphRAG의 global search map 단계는 각 커뮤니티 응답을 엄격한 JSON 스키마로 요구하는데,
+  qwen2.5가 이 형식을 안정적으로 못 지켜(`list` 반환 등) 파싱이 깨지고, 모든 map 응답이
+  점수 0으로 처리되어 "답변할 수 없음"이라는 캔 답변만 나온다
+  (`ragproj/logs/query.log`의 `Error decoding faulty json` 참고). `qwen2.5:3b`(VRAM이 더
+  작은 GPU용)는 이보다 심해서 애초에 엔티티/관계 이름 표기가 서로 어긋나 인덱싱 단계에서
+  관계 추출 자체가 실패한다(`No relationships detected during extraction`). 근본 해결은
+  ① 더 큰/instruction-following이 강한 로컬 모델 사용, ② Ollama의 구조화 출력(JSON 모드)
+  강제 옵션이 graphrag 쪽에 노출되면 적용, ③ global search를 포기하고 local/drift만
+  Ollama로 지원 중 하나가 될 것 — 아직 미해결. `query_cli.py`/`app.py`는 이 조합을 감지하면
+  경고만 띄우고 시도는 허용한다.
+- **GPU 사용 시 CUDA 버전 호환성 주의**: Ollama가 최신 CUDA 툴체인으로 컴파일된 백엔드를
+  기본으로 시도하는데, NVIDIA 드라이버가 그보다 오래되면 `PTX was compiled with an
+  unsupported toolchain` 오류로 크래시한다(Pascal 세대 GTX 1060 + 구드라이버 조합에서 실제
+  발생). 드라이버를 최신화하면 Ollama가 자동으로 구버전 CUDA 백엔드(`cuda_v12` 등)로
+  폴백하며, `cuda_v13`처럼 최신 백엔드가 아예 오래된 GPU 아키텍처를 컴파일 대상에서 뺀
+  경우에도 마찬가지로 자동 폴백된다(로그의 `skipping CUDA device` 경고로 확인 가능).
 - **`_log_offset`/`_read_new_log_text`는 append 전제**: §2 `index_runner.py` 항목 참고. graphrag
   로깅 방식이 바뀌면 재검토 필요.
 

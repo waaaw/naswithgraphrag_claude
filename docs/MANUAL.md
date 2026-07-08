@@ -99,7 +99,8 @@ NAS2dual(input/) → [pull] → 전처리(txt 변환) → GraphRAG 인덱싱 →
 | 한국어 프롬프트 튜닝 | 31.1초 | 31,694 |
 
 토큰 비용은 gpt-4o-mini 기준 매우 낮다(전체 인덱싱 한 번에 몇 센트 수준). API 키 없이 완전 무료로
-돌리고 싶다면 Ollama 로컬 모델(`config/settings.ollama.yaml`)로 전환하는 옵션도 준비되어 있다.
+돌리고 싶다면 `python src/backend_switch.py --backend ollama`로 전환할 수 있다(실측: 인덱싱
+35.4분, `local`/`drift` 검색 정상, `global` 검색은 아래 함정 참고).
 
 ## 7. 실전에서 만난 함정들
 
@@ -117,6 +118,12 @@ NAS2dual(input/) → [pull] → 전처리(txt 변환) → GraphRAG 인덱싱 →
 **⚠️ Ollama num_ctx 함정 (완전 로컬 전환 시)** — Ollama의 기본 컨텍스트 창은 2048 토큰이라,
 GraphRAG의 긴 JSON 추출 출력이 중간에 잘린다(truncation). 반드시 `PARAMETER num_ctx 12288`을 넣은
 커스텀 Modelfile로 모델을 다시 만들어야 한다.
+
+**⚠️ [차후 해결 과제] Ollama + global 검색 실패** — `qwen2.5:7b`로 인덱싱과 `local`/`drift`
+검색까지는 API 키 없이 정상 동작함을 실제로 확인했다("오리온 프로젝트 기술 리드는 누구야?"에
+OpenAI와 동일하게 "박도현" 정답 반환). 하지만 `global` 검색은 GraphRAG가 요구하는 엄격한 JSON
+응답 형식을 소형 로컬 모델이 못 지켜 "답변할 수 없음"만 나온다. 지금은 고치지 않고 기록만
+해뒀다 — 정확한 global 답변이 필요하면 openai 백엔드를 쓸 것.
 
 **⚠️ NAS 백업 시 파일 잠금** — 인덱싱 직후 lancedb 벡터스토어 파일이 아주 짧게 잠겨 있어, 인덱싱이
 끝나자마자 NAS로 백업하면 간헐적으로 실패할 수 있었다. 실패 시 3초 대기 후 1회 자동 재시도하도록

@@ -11,6 +11,8 @@ import logging
 import sys
 from pathlib import Path
 
+import backend_switch
+
 logger = logging.getLogger("query_cli")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -35,6 +37,12 @@ def run_query(root: Path, method: str, query: str) -> str:
         raise QueryCliError(
             f"settings.yaml이 없습니다: {root}. 먼저 인덱싱을 완료하세요 "
             f"(graphrag index 또는 src/index_runner.py)."
+        )
+    if method == "global" and backend_switch.current_backend() == "ollama":
+        logger.warning(
+            "알려진 한계: Ollama 로컬 모델(qwen2.5)은 global search가 요구하는 엄격한 "
+            "JSON 응답 형식을 잘 못 지켜 '답변할 수 없음'이 나올 수 있습니다(local/drift는 "
+            "영향 없음). 자세한 내용은 docs/DEV_NOTES.md 참고."
         )
 
     from graphrag.cli.query import run_drift_search, run_global_search, run_local_search
@@ -67,11 +75,17 @@ def main() -> None:
     )
     parser.add_argument("--method", default="global", help="검색 방식: global(기본)/local/drift")
     parser.add_argument("--q", "--query", dest="query", required=True, help="질의 문자열")
+    parser.add_argument(
+        "--backend", choices=["openai", "ollama"], default=None,
+        help="지정하면 질의 전에 해당 백엔드로 전환(config/settings.<backend>.yaml 적용)",
+    )
     args = parser.parse_args()
 
     try:
+        if args.backend:
+            backend_switch.switch_backend(args.backend)
         response = run_query(args.root, args.method, args.query)
-    except QueryCliError as e:
+    except (QueryCliError, backend_switch.BackendSwitchError) as e:
         logger.error(str(e))
         sys.exit(1)
         return

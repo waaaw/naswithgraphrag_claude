@@ -15,6 +15,7 @@ import sys
 import time
 from pathlib import Path
 
+import backend_switch
 import nas_sync
 
 logger = logging.getLogger("index_runner")
@@ -111,15 +112,21 @@ def main() -> None:
     )
     parser.add_argument("--update", action="store_true", help="증분 인덱싱(standard-update) 사용")
     parser.add_argument("--no-push", action="store_true", help="완료 후 NAS 백업(push)을 건너뜀")
+    parser.add_argument(
+        "--backend", choices=["openai", "ollama"], default=None,
+        help="지정하면 인덱싱 전에 해당 백엔드로 전환(config/settings.<backend>.yaml 적용)",
+    )
     args = parser.parse_args()
 
     try:
+        if args.backend:
+            backend_switch.switch_backend(args.backend)
         run_graphrag_index(args.root, args.update)
         if not args.no_push:
             logger.info("NAS 백업(push) 시작: %s", args.root / "output")
             _push_with_retry(args.root / "output")
             logger.info("NAS 백업 완료")
-    except (IndexRunnerError, nas_sync.NasSyncError) as e:
+    except (IndexRunnerError, nas_sync.NasSyncError, backend_switch.BackendSwitchError) as e:
         logger.error(str(e))
         sys.exit(1)
 
