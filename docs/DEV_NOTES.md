@@ -35,6 +35,22 @@ conda 채널과 자주 충돌하는 경험 때문에 pip+venv로 고정했다.
   176개). push에만 미러링을 켜서 해결. pull에는 미러링을 켜면 안 되는데, `preprocess.py`가
   `ragproj/input`에 로컬 전용 변환 결과(txt)를 만들어두는 경우가 있어 NAS 원본에 없는 그
   파일들까지 지워버릴 수 있기 때문이다([_robocopy](../src/nas_sync.py):78의 `mirror` 인자 참고).
+- `/MIR`로 바꾸면서 새로 생긴 리스크: 로컬 `ragproj/output`이 불완전한 상태(파일 일부만 남은
+  경우 등)에서 `push()`를 부르면 **미러링이라 NAS의 정상 백업까지 지워질 수 있다.** 코드
+  리뷰 때 발견해서 `push()` 시작 부분에 핵심 산출물(`entities.parquet` 등
+  [REQUIRED_OUTPUT_FILES](../src/nas_sync.py):32) 존재 여부를 확인하고, 없으면 NAS 연결을
+  시도하기도 전에 명확한 에러로 막도록 고쳤다.
+
+### 백엔드 불일치 방지 (`index_runner.py` + `query_cli.py`)
+
+- `query_cli.py --backend`나 `app.py`의 셀렉트박스로 백엔드를 바꾸고 **재인덱싱 없이 바로
+  질의**하면, 실제 `ragproj/output`은 이전 백엔드 임베딩 그대로인데 새 백엔드 설정으로
+  질의하게 되는 문제가 있었다(운이 나쁘면 조용히 이상한 결과가 나올 수 있음). 인덱싱 성공 시
+  [_write_indexed_backend_marker](../src/index_runner.py)가 `ragproj/output/.indexed_backend`에
+  실제 사용된 백엔드를 남기고, `query_cli.py`의 `run_query()`가 이걸 `ragproj/.backend`(활성
+  백엔드)와 비교해 다르면 질의 전에 명확한 에러로 막는다. 주의: `index_runner.py`를 거치지
+  않고 `graphrag index`를 직접 실행하면 이 마커가 갱신되지 않아 stale해질 수 있다 —
+  이 프로젝트의 권장 워크플로(`index_runner.py` 경유)를 벗어난 경우의 한계.
 
 ### `src/preprocess.py`
 
