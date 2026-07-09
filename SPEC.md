@@ -141,8 +141,8 @@ nas-graphrag/
 | num_ctx/max_tokens | 모델 기본 | 12288+ (truncation 방지) |
 
 ## Definition of Done
-- [ ] M0~M2 전부 Acceptance 통과
-- [ ] NAS input/ 에 문서 넣고 1커맨드로 인덱싱→백업→질의 왕복
-- [ ] README만으로 재현 가능 + 비용·시간 실측 기록
-- [ ] `.env`는 git 제외, `.env.example`로 대체
-- [ ] (선택) M3 UI 또는 M4 로컬 전환 중 최소 하나
+- [x] M0~M2 전부 Acceptance 통과
+- [x] NAS input/ 에 문서 넣고 1커맨드로 인덱싱→백업→질의 왕복 (실제 NAS로 검증됨)
+- [x] README만으로 재현 가능 + 비용·시간 실측 기록
+- [x] `.env`는 git 제외, `.env.example`로 대체
+- [x] (선택) M3 UI 또는 M4 로컬 전환 중 최소 하나 (둘 다 구현: Streamlit UI + Ollama 백엔드 전환)

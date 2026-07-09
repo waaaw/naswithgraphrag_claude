@@ -99,7 +99,6 @@ def main() -> None:
     except (QueryCliError, backend_switch.BackendSwitchError) as e:
         logger.error(str(e))
         sys.exit(1)
-        return
 
     # graphrag 내부에서도 print(response)를 호출하지만, Windows 콘솔 코드페이지
     # (예: cp949) 환경에서는 한글이 깨질 수 있어, 원시 UTF-8 바이트로 한 번 더
